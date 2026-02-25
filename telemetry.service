@@ -1,0 +1,16 @@
+[Unit]
+Description=Telemetry System Monitor
+After=network.target
+
+[Service]
+Type=simple
+User=REPLACE_WITH_USERNAME
+ExecStart=/usr/local/bin/telemetry
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

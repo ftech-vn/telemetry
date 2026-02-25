@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            output: telemetry-linux-amd64
+          - goos: linux
+            goarch: arm64
+            output: telemetry-linux-arm64
+          - goos: darwin
+            goarch: amd64
+            output: telemetry-darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            output: telemetry-darwin-arm64
+          - goos: windows
+            goarch: amd64
+            output: telemetry-windows-amd64.exe
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          go build -v -ldflags="-s -w -X main.Version=${{ github.ref_name }}" -o ${{ matrix.output }} .
+          
+      - name: Create checksum
+        run: |
+          if command -v sha256sum &> /dev/null; then
+            sha256sum ${{ matrix.output }} > ${{ matrix.output }}.sha256
+          else
+            shasum -a 256 ${{ matrix.output }} > ${{ matrix.output }}.sha256
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.output }}-artifact
+          path: |
+            ${{ matrix.output }}
+            ${{ matrix.output }}.sha256
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release-assets/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

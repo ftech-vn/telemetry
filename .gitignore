@@ -1,0 +1,17 @@
+# Build artifacts
+telemetry
+*.exe
+
+# Markdown files except README.md
+*.md
+!README.md
+
+# Logs
+*.log
+
+# IDE
+.vscode
+.idea
+.cursor
+*.swp
+*.swo
