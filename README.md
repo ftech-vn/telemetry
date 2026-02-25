@@ -96,20 +96,66 @@ health_checks:
 | `memory_threshold`| Float | `80.0` | Alert if memory usage % exceeds this. |
 | `health_checks`  | List | `[]` | List of `Name;URL` to monitor for HTTP 200. |
 
-## Service Management (Linux)
+## Service Management
 
+### Linux (systemd)
 ```bash
-# Apply config changes without restart
+# Start the service
+sudo systemctl start telemetry
+
+# Reload configuration (Zero-downtime)
 sudo systemctl reload telemetry
 
-# Restart service
+# Restart the service
 sudo systemctl restart telemetry
 
 # View live logs
 journalctl -u telemetry -f
 
-# Check status
-sudo systemctl status telemetry
+# Stop the service
+sudo systemctl stop telemetry
+
+# Delete/Uninstall the service
+sudo systemctl disable telemetry
+sudo rm /etc/systemd/system/telemetry.service
+sudo systemctl daemon-reload
+```
+
+### macOS (launchd)
+```bash
+# Start the service
+launchctl load ~/Library/LaunchAgents/com.telemetry.monitor.plist
+
+# Restart/Reload configuration
+launchctl unload ~/Library/LaunchAgents/com.telemetry.monitor.plist
+launchctl load ~/Library/LaunchAgents/com.telemetry.monitor.plist
+
+# View logs
+tail -f ~/.telemetry/telemetry.log
+
+# Stop the service
+launchctl unload ~/Library/LaunchAgents/com.telemetry.monitor.plist
+
+# Delete/Uninstall the service
+rm ~/Library/LaunchAgents/com.telemetry.monitor.plist
+```
+
+### Windows (NSSM)
+```powershell
+# Start the service
+nssm start telemetry
+
+# Restart the service
+nssm restart telemetry
+
+# Stop the service
+nssm stop telemetry
+
+# Delete/Uninstall the service
+nssm remove telemetry confirm
+
+# View logs
+Get-Content -Path "$HOME\.telemetry\telemetry.log" -Wait
 ```
 
 ## Development
