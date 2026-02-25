@@ -21,6 +21,7 @@ The script will detect your OS/architecture, download (or build) the binary, set
     - **CPU**: Tracks total usage and provides a normalized list of the top 5 CPU-consuming processes.
     - **Memory**: Tracks memory usage (percentage and MB) with a list of top memory-consuming processes.
     - **HTTP Health**: Monitors multiple endpoints with custom project names.
+    - **Database Connectivity**: Monitors full connectivity (including authentication) for Postgres and MySQL.
 - **Intelligent Alerting**:
     - Single aggregated alert for disk usage instead of spamming per partition.
     - Top process breakdown to help you identify resource hogs instantly.
@@ -81,6 +82,12 @@ memory_threshold: 80.0
 health_checks:
   - "Main Website;https://example.com/health"
   - "API Gateway;https://api.example.com/ping"
+
+# Database Connection Checks
+# Format: "Name;DSN"
+db_checks:
+  - "Production DB;postgres://user:password@localhost:5432/dbname?sslmode=disable"
+  - "Local DB;user:password@tcp(127.0.0.1:3306)/dbname"
 ```
 
 ### Configuration Options
@@ -95,6 +102,7 @@ health_checks:
 | `cpu_threshold`  | Float | `80.0` | Alert if total CPU usage % exceeds this. |
 | `memory_threshold`| Float | `80.0` | Alert if memory usage % exceeds this. |
 | `health_checks`  | List | `[]` | List of `Name;URL` to monitor for HTTP 200. |
+| `db_checks`      | List | `[]` | List of `Name;DSN` for DB connectivity. |
 
 ## Service Management
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"os/signal"
@@ -23,8 +24,10 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
 	// Initial configuration and startup
-	cfg, monitors, notifiers, ticker := startup()
+	ctx, cancel := context.WithCancel(context.Background())
+	cfg, monitors, notifiers, ticker := startup(ctx)
 	defer ticker.Stop()
+	defer cancel()
 
 	// Run initial check
 	runChecks(monitors, notifiers)
@@ -36,12 +39,13 @@ func main() {
 		case sig := <-sigChan:
 			if sig == syscall.SIGHUP {
 				log.Println("♻️  Received SIGHUP, reloading configuration...")
-				newCfg, newMonitors, newNotifiers, newTicker := startup()
+				cancel() // Stop existing TCP goroutines
+				ctx, cancel = context.WithCancel(context.Background())
+				newCfg, newMonitors, newNotifiers, newTicker := startup(ctx)
 				if newTicker != nil {
 					ticker.Stop()
 					cfg, monitors, notifiers, ticker = newCfg, newMonitors, newNotifiers, newTicker
 					log.Println("✅ Configuration reloaded successfully")
-					// Run check immediately after reload
 					runChecks(monitors, notifiers)
 				}
 				continue
@@ -62,6 +66,7 @@ func main() {
 
 			log.Println("🛑 Stopping ticker...")
 			ticker.Stop()
+			cancel()
 			log.Println("🔌 Cleaning up resources...")
 			log.Println("✅ Shutdown complete. Goodbye!")
 			return
@@ -69,7 +74,7 @@ func main() {
 	}
 }
 
-func startup() (*config.Config, *monitor.Registry, *notifier.Registry, *time.Ticker) {
+func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.Registry, *time.Ticker) {
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
@@ -107,6 +112,41 @@ func startup() (*config.Config, *monitor.Registry, *notifier.Registry, *time.Tic
 	// Initialize notifiers
 	notifiers := notifier.NewRegistry()
 	notifiers.Register("lark", notifier.NewLarkNotifier(cfg.LarkWebhookURL))
+
+	// Database Checks run in their own high-frequency loop
+	for _, dbc := range cfg.DBChecks {
+		if strings.HasPrefix(dbc, "#") {
+			continue
+		}
+		parts := strings.SplitN(dbc, ";", 2)
+		if len(parts) == 2 {
+			name := strings.TrimSpace(parts[0])
+			dsn := strings.TrimSpace(parts[1])
+			
+			m := monitor.NewDBMonitor(name, dsn)
+			log.Printf("📊 Immediate DB monitoring enabled for: %s", name)
+			
+			// Start independent check loop
+			go func(dbM *monitor.DBMonitor, n *notifier.Registry, serverName string) {
+				ticker := time.NewTicker(5 * time.Second)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ticker.C:
+						alerts := dbM.Check()
+						if len(alerts) > 0 {
+							for i := range alerts {
+								alerts[i].ServerName = serverName
+							}
+							n.NotifyAll(alerts)
+						}
+					case <-ctx.Done():
+						return
+					}
+				}
+			}(m, notifiers, cfg.ServerName)
+		}
+	}
 
 	// Parse check interval
 	interval, err := time.ParseDuration(cfg.CheckInterval)

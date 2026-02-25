@@ -170,6 +170,11 @@ memory_threshold: 80.0
 #   - "My Website;https://example.com/health"
 #   - "API Server;https://api.example.com/ping"
 
+# Database connection checks (optional)
+# Format: "Name;DSN"
+# db_checks:
+#   - "Production DB;postgres://user:password@localhost:5432/dbname?sslmode=disable"
+#   - "Local DB;user:password@tcp(127.0.0.1:3306)/dbname"
 EOF
     echo -e "${GREEN}✓ Created config file at ${CONFIG_FILE}${NC}"
     echo -e "${YELLOW}Edit this file to set your Lark webhook URL${NC}"
@@ -183,6 +188,7 @@ else
     add_config_if_missing "cpu_threshold" "80.0" && CHANGES=$((CHANGES+1))
     add_config_if_missing "memory_threshold" "80.0" && CHANGES=$((CHANGES+1))
     add_config_if_missing "health_checks" "[]" && CHANGES=$((CHANGES+1))
+    add_config_if_missing "db_checks" "[]" && CHANGES=$((CHANGES+1))
     add_config_if_missing "excluded_dirs" "[]" && CHANGES=$((CHANGES+1))
     
     if [ $CHANGES -gt 0 ]; then
