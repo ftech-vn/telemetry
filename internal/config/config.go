@@ -17,6 +17,7 @@ type Config struct {
 	CPUThreshold    *float64 `yaml:"cpu_threshold"`
 	MemoryThreshold *float64 `yaml:"memory_threshold"`
 	HealthChecks    []string `yaml:"health_checks"`
+	DBChecks        []string `yaml:"db_checks"`
 	LarkWebhookURL  string   `yaml:"lark_webhook_url"`
 }
 
