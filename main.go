@@ -135,6 +135,7 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 					case <-ticker.C:
 						alerts := dbM.Check()
 						if len(alerts) > 0 {
+							log.Printf("⚠️  DB Alert: %s", alerts[0].Message)
 							for i := range alerts {
 								alerts[i].ServerName = serverName
 							}
