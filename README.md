@@ -176,8 +176,8 @@ go build -o telemetry
 go test ./...
 
 # Create a new release (triggers GitHub Actions)
-git tag v0.1.x
-git push origin v0.1.x
+git tag v1.1.x
+git push origin v1.1.x
 ```
 
 ## License
