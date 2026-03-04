@@ -13,7 +13,8 @@ type Alert struct {
 }
 
 type Monitor interface {
-	Check() []Alert
+	CheckMetrics() []Alert
+	CheckAlerts(metrics []Alert) []Alert
 }
 
 type Registry struct {
@@ -38,19 +39,39 @@ func (r *Registry) Register(name string, m Monitor) {
 	r.names = append(r.names, name)
 }
 
-func (r *Registry) CheckAll() []Alert {
+func (r *Registry) CheckAlerts() []Alert {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
-	var alerts []Alert
+
+	var allAlerts []Alert
 	for _, name := range r.names {
 		monitor := r.monitors[name]
-		monitorAlerts := monitor.Check()
-		// Add server name to all alerts
-		for i := range monitorAlerts {
-			monitorAlerts[i].ServerName = r.serverName
+		metrics := monitor.CheckMetrics()
+		for i := range metrics {
+			metrics[i].ServerName = r.serverName
 		}
-		alerts = append(alerts, monitorAlerts...)
+
+		alerts := monitor.CheckAlerts(metrics)
+		for i := range alerts {
+			alerts[i].ServerName = r.serverName
+		}
+		allAlerts = append(allAlerts, alerts...)
 	}
-	return alerts
+	return allAlerts
+}
+
+func (r *Registry) CheckMetrics() []Alert {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var allMetrics []Alert
+	for _, name := range r.names {
+		monitor := r.monitors[name]
+		metrics := monitor.CheckMetrics()
+		for i := range metrics {
+			metrics[i].ServerName = r.serverName
+		}
+		allMetrics = append(allMetrics, metrics...)
+	}
+	return allMetrics
 }

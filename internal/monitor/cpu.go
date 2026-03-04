@@ -19,57 +19,46 @@ func NewCPUMonitor(threshold float64) *CPUMonitor {
 	}
 }
 
-func (m *CPUMonitor) Check() []Alert {
-	// Get initial system times
-	t1, _ := cpu.Times(false)
-	// Get initial process times
-	procs, _ := process.Processes()
-	p1 := make(map[int32]float64)
-	pCache := make(map[int32]*process.Process)
-	for _, p := range procs {
-		if t, err := p.Times(); err == nil {
-			p1[p.Pid] = t.User + t.System
-			pCache[p.Pid] = p
-		}
+func (m *CPUMonitor) CheckMetrics() []Alert {
+	percents, err := cpu.Percent(time.Second, false)
+	if err != nil || len(percents) == 0 {
+		return nil
 	}
+	systemUsage := percents[0]
 
-	// Wait 1 second for sampling
-	time.Sleep(time.Second)
-
-	// Get final system times
-	t2, _ := cpu.Times(false)
-	// Get final process times
-	var usageList []struct {
-		name    string
-		pid     int32
-		percent float64
+	return []Alert{
+		{
+			Type:  "cpu",
+			Value: systemUsage,
+		},
 	}
+}
 
-	if len(t1) > 0 && len(t2) > 0 {
-		// Total system delta across all cores
-		totalDelta := (t2[0].User + t2[0].System + t2[0].Nice + t2[0].Iowait + t2[0].Irq + t2[0].Softirq + t2[0].Steal + t2[0].Idle) -
-			(t1[0].User + t1[0].System + t1[0].Nice + t1[0].Iowait + t1[0].Irq + t1[0].Softirq + t1[0].Steal + t1[0].Idle)
-		
-		// Idle delta
-		idleDelta := t2[0].Idle - t1[0].Idle
-		systemUsage := (1.0 - idleDelta/totalDelta) * 100
+func (m *CPUMonitor) CheckAlerts(metrics []Alert) []Alert {
+	var alerts []Alert
+	for _, metric := range metrics {
+		if metric.Type == "cpu" && metric.Value >= m.threshold {
+			// Threshold breached, create a detailed alert
+			procs, err := process.Processes()
+			if err != nil {
+				return nil
+			}
 
-		if systemUsage >= m.threshold {
-			for pid, p := range pCache {
-				if t, err := p.Times(); err == nil {
-					if startTime, ok := p1[pid]; ok {
-						procDelta := (t.User + t.System) - startTime
-						// Percentage of TOTAL system capacity
-						percent := (procDelta / totalDelta) * 100
-						if percent > 0.1 {
-							name, _ := p.Name()
-							usageList = append(usageList, struct {
-								name    string
-								pid     int32
-								percent float64
-							}{name, pid, percent})
-						}
-					}
+			var usageList []struct {
+				name    string
+				pid     int32
+				percent float64
+			}
+
+			for _, p := range procs {
+				percent, err := p.CPUPercent()
+				if err == nil && percent > 0.1 {
+					name, _ := p.Name()
+					usageList = append(usageList, struct {
+						name    string
+						pid     int32
+						percent float64
+					}{name, p.Pid, percent})
 				}
 			}
 
@@ -91,20 +80,17 @@ func (m *CPUMonitor) Check() []Alert {
 				criticalThreshold = 95.0
 			}
 			severity := "warning"
-			if systemUsage >= criticalThreshold {
+			if metric.Value >= criticalThreshold {
 				severity = "critical"
 			}
 
-			return []Alert{
-				{
-					Type:     "cpu",
-					Message:  fmt.Sprintf("CPU usage is %.1f%%, exceeding threshold of %.1f%%%s", systemUsage, m.threshold, details),
-					Value:    systemUsage,
-					Severity: severity,
-				},
-			}
+			alerts = append(alerts, Alert{
+				Type:     "cpu",
+				Message:  fmt.Sprintf("CPU usage is %.1f%%, exceeding threshold of %.1f%%%s", metric.Value, m.threshold, details),
+				Value:    metric.Value,
+				Severity: severity,
+			})
 		}
 	}
-
-	return nil
+	return alerts
 }

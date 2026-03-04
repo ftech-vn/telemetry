@@ -30,12 +30,12 @@ func main() {
 	defer cancel()
 
 	// Run initial check
-	runChecks(monitors, notifiers)
+	runAlertChecks(monitors, notifiers)
 
 	for {
 		select {
 		case <-ticker.C:
-			runChecks(monitors, notifiers)
+			runAlertChecks(monitors, notifiers)
 		case sig := <-sigChan:
 			if sig == syscall.SIGHUP {
 				log.Println("♻️  Received SIGHUP, reloading configuration...")
@@ -46,7 +46,7 @@ func main() {
 					ticker.Stop()
 					cfg, monitors, notifiers, ticker = newCfg, newMonitors, newNotifiers, newTicker
 					log.Println("✅ Configuration reloaded successfully")
-					runChecks(monitors, notifiers)
+					runAlertChecks(monitors, notifiers)
 				}
 				continue
 			}
@@ -111,7 +111,34 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 
 	// Initialize notifiers
 	notifiers := notifier.NewRegistry()
-	notifiers.Register("lark", notifier.NewLarkNotifier(cfg.LarkWebhookURL))
+	if cfg.LarkWebhookURL != "" {
+		notifiers.Register("lark", notifier.NewLarkNotifier(cfg.LarkWebhookURL))
+		log.Println("📢 Lark notifier enabled")
+	}
+
+	// Webhook for high-frequency metrics
+	if cfg.WebhookURL != "" {
+		webhookNotifier := notifier.NewWebhookNotifier(cfg.WebhookURL)
+		log.Printf("🚀 Webhook for metrics enabled (URL: %s, Interval: %s)", cfg.WebhookURL, cfg.WebhookInterval)
+
+		// Start independent metrics loop
+		go func(m *monitor.Registry, n *notifier.WebhookNotifier, serverName string) {
+			interval, _ := time.ParseDuration(cfg.WebhookInterval)
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					metrics := m.CheckMetrics()
+					if len(metrics) > 0 {
+						n.Notify(metrics)
+					}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}(monitors, webhookNotifier, cfg.ServerName)
+	}
 
 	// Database Checks run in their own high-frequency loop
 	for _, dbc := range cfg.DBChecks {
@@ -122,10 +149,10 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 		if len(parts) == 2 {
 			name := strings.TrimSpace(parts[0])
 			dsn := strings.TrimSpace(parts[1])
-			
+
 			m := monitor.NewDBMonitor(name, dsn)
 			log.Printf("📊 Immediate DB monitoring enabled for: %s", name)
-			
+
 			// Start independent check loop
 			go func(dbM *monitor.DBMonitor, n *notifier.Registry, serverName string) {
 				ticker := time.NewTicker(5 * time.Second)
@@ -133,12 +160,15 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 				for {
 					select {
 					case <-ticker.C:
-						alerts := dbM.Check()
+						metrics := dbM.CheckMetrics()
+						// Add server name to all metrics
+						for i := range metrics {
+							metrics[i].ServerName = serverName
+						}
+						alerts := dbM.CheckAlerts(metrics)
 						if len(alerts) > 0 {
 							log.Printf("⚠️  DB Alert: %s", alerts[0].Message)
-							for i := range alerts {
-								alerts[i].ServerName = serverName
-							}
+							// alerts already have serverName from CheckAlerts
 							n.NotifyAll(alerts)
 						}
 					case <-ctx.Done():
@@ -156,13 +186,13 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 		return nil, nil, nil, nil
 	}
 
-	log.Printf("✅ Configured to check every %v", interval)
+	log.Printf("✅ Configured to check for alerts every %v", interval)
 	return cfg, monitors, notifiers, time.NewTicker(interval)
 }
 
-func runChecks(monitors *monitor.Registry, notifiers *notifier.Registry) {
-	alerts := monitors.CheckAll()
-	
+func runAlertChecks(monitors *monitor.Registry, notifiers *notifier.Registry) {
+	alerts := monitors.CheckAlerts()
+
 	if len(alerts) > 0 {
 		log.Printf("⚠️  Found %d alert(s)", len(alerts))
 		for _, alert := range alerts {
@@ -170,6 +200,6 @@ func runChecks(monitors *monitor.Registry, notifiers *notifier.Registry) {
 		}
 		notifiers.NotifyAll(alerts)
 	} else {
-		log.Println("✓ All systems nominal")
+		log.Println("✓ All systems nominal for alerts")
 	}
 }
