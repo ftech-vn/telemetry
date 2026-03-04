@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	repo     = "ftech-vn/telemetry"
-	apiURL   = "https://api.github.com/repos/" + repo + "/releases/latest"
-	fileName = "telemetry"
+	repo             = "ftech-vn/telemetry"
+	apiURL           = "https://api.github.com/repos/" + repo + "/releases/latest"
+	fileName         = "telemetry"
+	updateNoticeFile = "/tmp/telemetry_update_notice"
 )
 
 func CheckForUpdates(currentVersion string, cfg *config.Config) {
@@ -49,6 +50,8 @@ func CheckForUpdates(currentVersion string, cfg *config.Config) {
 	latestVersion := strings.TrimPrefix(release.TagName, "v")
 	if latestVersion == currentVersion {
 		log.Println("✅ You are running the latest version.")
+		// If we are up to date, remove the notice file if it exists.
+		os.Remove(updateNoticeFile)
 		return
 	}
 
@@ -71,6 +74,12 @@ func CheckForUpdates(currentVersion string, cfg *config.Config) {
 	if err := downloadAndReplace(downloadURL); err != nil {
 		log.Printf("❌ Failed to update binary: %v", err)
 		return
+	}
+
+	// Create the notification file for MOTD scripts
+	noticeMessage := fmt.Sprintf("Telemetry has been updated to v%s. Please restart the service to apply the changes.", latestVersion)
+	if err := os.WriteFile(updateNoticeFile, []byte(noticeMessage), 0644); err != nil {
+		log.Printf("❌ Failed to write update notification file: %v", err)
 	}
 
 	log.Println("✅ Update successful! Please restart the service to apply the changes.")
