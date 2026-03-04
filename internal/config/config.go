@@ -21,6 +21,7 @@ type Config struct {
 	LarkWebhookURL  string   `yaml:"lark_webhook_url"`
 	WebhookURL      string   `yaml:"webhook_url"`
 	WebhookInterval string   `yaml:"webhook_interval"`
+	AutoUpdate      bool     `yaml:"auto_update"`
 }
 
 func Load() (*Config, error) {

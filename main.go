@@ -12,6 +12,7 @@ import (
 	"telemetry/internal/config"
 	"telemetry/internal/monitor"
 	"telemetry/internal/notifier"
+	"telemetry/internal/updater"
 )
 
 var Version = "dev"
@@ -28,6 +29,21 @@ func main() {
 	cfg, monitors, notifiers, ticker := startup(ctx)
 	defer ticker.Stop()
 	defer cancel()
+
+	// Start auto-updater
+	go func() {
+		updater.CheckForUpdates(Version, cfg)
+		updateTicker := time.NewTicker(24 * time.Hour)
+		defer updateTicker.Stop()
+		for {
+			select {
+			case <-updateTicker.C:
+				updater.CheckForUpdates(Version, cfg)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	// Run initial check
 	runAlertChecks(monitors, notifiers)
