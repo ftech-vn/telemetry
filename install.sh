@@ -174,7 +174,17 @@ memory_threshold: 80.0
 # Format: "Name;DSN"
 # db_checks:
 #   - "Production DB;postgres://user:password@localhost:5432/dbname?sslmode=disable"
-#   - "Local DB;user:password@tcp(127.0.0.1:3306)/dbname"
+#   - "Local DB;user:password@tcp(127.00.0.1:3306)/dbname"
+
+# Webhook URL for sending all metrics (optional)
+# Metrics are sent without threshold checks at webhook_interval
+# Example: https://your-metrics-endpoint.com/metrics
+# webhook_url: ""
+
+# Interval for sending metrics to the webhook URL
+# Examples: "1s" (1 second), "5s" (5 seconds), "30s" (30 seconds)
+# Valid range: 1s to 24h
+# webhook_interval: "1s"
 EOF
     echo -e "${GREEN}✓ Created config file at ${CONFIG_FILE}${NC}"
     echo -e "${YELLOW}Edit this file to set your Lark webhook URL${NC}"
@@ -190,6 +200,8 @@ else
     add_config_if_missing "health_checks" "[]" && CHANGES=$((CHANGES+1))
     add_config_if_missing "db_checks" "[]" && CHANGES=$((CHANGES+1))
     add_config_if_missing "excluded_dirs" "[]" && CHANGES=$((CHANGES+1))
+    add_config_if_missing "webhook_url" "\"\"" && CHANGES=$((CHANGES+1))
+    add_config_if_missing "webhook_interval" "\"1s\"" && CHANGES=$((CHANGES+1))
     
     if [ $CHANGES -gt 0 ]; then
         echo -e "${GREEN}✓ Added $CHANGES new configuration fields to ${CONFIG_FILE}${NC}"

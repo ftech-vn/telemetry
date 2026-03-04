@@ -57,50 +57,48 @@ func NewDBMonitor(name, dsn string) *DBMonitor {
 	}
 }
 
-func (m *DBMonitor) Check() []Alert {
-	// Use a context with timeout for the entire operation
+func (m *DBMonitor) CheckMetrics() []Alert {
 	ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
 	defer cancel()
 
-	log.Printf("🔍 Checking DB [%s] (Dialing %s)...", m.name, m.dbType)
 	db, err := sql.Open(m.dbType, m.dsn)
 	if err != nil {
-		return m.handleFailure(err)
+		return []Alert{{Type: "database", Value: -1}}
 	}
 	defer db.Close()
 
-	log.Printf("📡 Pinging DB [%s]...", m.name)
 	err = db.PingContext(ctx)
 	if err != nil {
-		return m.handleFailure(err)
+		return []Alert{{Type: "database", Value: -1}}
 	}
 
-	if m.isDown {
-		m.isDown = false
-		log.Printf("🟢 DB Nominal: %s", m.name)
-		return []Alert{
-			{
-				Type:     "database",
-				Message:  fmt.Sprintf("🟢 Database Connection RESTORED: %s", m.name),
-				Severity: "warning",
-			},
-		}
-	}
-
-	log.Printf("✅ DB [%s] is OK", m.name)
-	return nil
+	return []Alert{{Type: "database", Value: 1}}
 }
 
-func (m *DBMonitor) handleFailure(err error) []Alert {
-	if !m.isDown {
-		m.isDown = true
-		return []Alert{
-			{
-				Type:     "database",
-				Message:  fmt.Sprintf("🔴 Database Connection FAILED: %s: %v", m.name, err),
-				Severity: "critical",
-			},
+func (m *DBMonitor) CheckAlerts(metrics []Alert) []Alert {
+	var alerts []Alert
+	for _, metric := range metrics {
+		if metric.Type == "database" {
+			if metric.Value == -1 { // Failure
+				if !m.isDown {
+					m.isDown = true
+					alerts = append(alerts, Alert{
+						Type:     "database",
+						Message:  fmt.Sprintf("🔴 Database Connection FAILED: %s", m.name),
+						Severity: "critical",
+					})
+				}
+			} else { // Success
+				if m.isDown {
+					m.isDown = false
+					alerts = append(alerts, Alert{
+						Type:     "database",
+						Message:  fmt.Sprintf("🟢 Database Connection RESTORED: %s", m.name),
+						Severity: "warning",
+					})
+				}
+			}
 		}
 	}
-	return nil
+	return alerts
 }
