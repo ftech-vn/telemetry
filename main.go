@@ -12,6 +12,7 @@ import (
 	"telemetry/internal/config"
 	"telemetry/internal/monitor"
 	"telemetry/internal/notifier"
+	"telemetry/internal/updater"
 )
 
 var Version = "dev"
@@ -28,6 +29,46 @@ func main() {
 	cfg, monitors, notifiers, ticker := startup(ctx)
 	defer ticker.Stop()
 	defer cancel()
+
+	// Start auto-updater
+	go func() {
+		if !cfg.AutoUpdate {
+			return
+		}
+
+		// Calculate duration until next midnight
+		now := time.Now()
+		midnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+		durationUntilMidnight := midnight.Sub(now)
+
+		log.Printf("🕒 Next auto-update check scheduled in %v (at %v)", durationUntilMidnight, midnight)
+
+		// Wait until the first midnight
+		firstCheckTimer := time.NewTimer(durationUntilMidnight)
+		defer firstCheckTimer.Stop()
+
+		select {
+		case <-firstCheckTimer.C:
+			// Run the first check
+			updater.CheckForUpdates(Version, cfg)
+
+			// Then, start a ticker for every 24 hours
+			updateTicker := time.NewTicker(24 * time.Hour)
+			defer updateTicker.Stop()
+
+			for {
+				select {
+				case <-updateTicker.C:
+					updater.CheckForUpdates(Version, cfg)
+				case <-ctx.Done():
+					return
+				}
+			}
+		case <-ctx.Done():
+			// If context is cancelled before the first check
+			return
+		}
+	}()
 
 	// Run initial check
 	runAlertChecks(monitors, notifiers)

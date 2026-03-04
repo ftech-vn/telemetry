@@ -134,57 +134,15 @@ if [ ! -f "$CONFIG_FILE" ]; then
     cat > "$CONFIG_FILE" << 'EOF'
 # Telemetry Configuration
 
+# Auto-update feature
+# If enabled, the telemetry service will check for new releases on GitHub
+# and automatically update itself.
+# Default: false
+auto_update: false
+
 # Server identification (appears in alerts)
 # Examples: "production-web-1", "staging-api", "dev-database"
 server_name: "production-server-1"
-
-# Lark webhook URL (required)
-# Get from: Lark > Group Chat > Settings > Bots > Add Bot > Custom Bot
-# Example: https://open.larksuite.com/open-apis/bot/v2/hook/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-lark_webhook_url: "https://open.larksuite.com/open-apis/bot/v2/hook/your-webhook-here"
-
-# Check interval - how often to monitor metrics
-# Examples: "30s" (30 seconds), "1m" (1 minute), "5m" (5 minutes), "1h" (1 hour)
-# Valid range: 1s to 24h
-check_interval: "60s"
-
-# Disk usage threshold percentage - alert when disk usage exceeds this value
-# Examples: 75.0 (75%), 85.0 (85%), 90.0 (90%)
-# Valid range: 1.0 to 100.0
-disk_threshold: 80.0
-
-# Directories to exclude from disk breakdown (optional)
-# excluded_dirs:
-#   - "/var/lib/docker"
-#   - "/var/log"
-
-# CPU usage threshold percentage - alert when CPU usage exceeds this
-cpu_threshold: 80.0
-
-# Memory usage threshold percentage - alert when memory usage exceeds this
-memory_threshold: 80.0
-
-# Health check URLs (optional)
-# Format: "Project Name;https://url.com"
-# health_checks:
-#   - "My Website;https://example.com/health"
-#   - "API Server;https://api.example.com/ping"
-
-# Database connection checks (optional)
-# Format: "Name;DSN"
-# db_checks:
-#   - "Production DB;postgres://user:password@localhost:5432/dbname?sslmode=disable"
-#   - "Local DB;user:password@tcp(127.00.0.1:3306)/dbname"
-
-# Webhook URL for sending all metrics (optional)
-# Metrics are sent without threshold checks at webhook_interval
-# Example: https://your-metrics-endpoint.com/metrics
-# webhook_url: ""
-
-# Interval for sending metrics to the webhook URL
-# Examples: "1s" (1 second), "5s" (5 seconds), "30s" (30 seconds)
-# Valid range: 1s to 24h
-# webhook_interval: "1s"
 EOF
     echo -e "${GREEN}✓ Created config file at ${CONFIG_FILE}${NC}"
     echo -e "${YELLOW}Edit this file to set your Lark webhook URL${NC}"
@@ -202,6 +160,7 @@ else
     add_config_if_missing "excluded_dirs" "[]" && CHANGES=$((CHANGES+1))
     add_config_if_missing "webhook_url" "\"\"" && CHANGES=$((CHANGES+1))
     add_config_if_missing "webhook_interval" "\"1s\"" && CHANGES=$((CHANGES+1))
+    add_config_if_missing "auto_update" "false" && CHANGES=$((CHANGES+1))
     
     if [ $CHANGES -gt 0 ]; then
         echo -e "${GREEN}✓ Added $CHANGES new configuration fields to ${CONFIG_FILE}${NC}"

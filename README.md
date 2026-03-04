@@ -16,6 +16,8 @@ The script will detect your OS/architecture, download (or build) the binary, set
 
 ## Features
 
+- **Auto-Update**: If enabled in the configuration, the Telemetry service will automatically check for new releases on GitHub every 24 hours and update its binary. A service restart is required to apply the updated binary.
+- **Webhook Metrics**: Sends all collected metrics (CPU, Memory, Disk, Health, DB) to a configurable webhook endpoint at a high frequency (default 1 second), allowing integration with custom dashboards or metric collection systems.
 - **Multi-Metric Monitoring**:
     - **Disk**: Monitors the root partition (`/`) with a detailed breakdown of top-level directory sizes.
     - **CPU**: Tracks total usage and provides a normalized list of the top 5 CPU-consuming processes.
@@ -46,10 +48,12 @@ telemetry/
     │   ├── memory.go           # Memory usage & process tracking
     │   ├── disk_unix.go        # Optimized Linux/macOS disk scanning
     │   ├── disk_windows.go     # Windows disk monitoring
-    │   └── health.go           # HTTP endpoint health checks
+    │   ├── health.go           # HTTP endpoint health checks
+    │   └── db.go               # Database health checks
     └── notifier/               # Notification implementations
         ├── notifier.go         # Notifier interface & registry
-        └── lark.go             # Lark (ByteDance) notifier
+        ├── lark.go             # Lark (ByteDance) notifier
+        └── webhook.go          # Generic webhook notifier for metrics
 ```
 
 ## Configuration
@@ -59,6 +63,21 @@ The configuration is stored in `~/.telemetry/config.yaml`.
 ### Example Config
 
 ```yaml
+# Auto-update feature (default: false)
+# If enabled, the telemetry service will check for new releases on GitHub
+# and automatically update itself. Requires a service restart to apply.
+auto_update: false
+
+# Webhook URL for sending all metrics (optional)
+# Metrics are sent without threshold checks at webhook_interval
+# Example: https://your-metrics-endpoint.com/metrics
+webhook_url: ""
+
+# Interval for sending metrics to the webhook URL (default: "1s")
+# Examples: "1s" (1 second), "5s" (5 seconds), "30s" (30 seconds)
+# Valid range: 1s to 24h
+webhook_interval: "1s"
+
 # Server identification (appears in alerts)
 server_name: "production-server-1"
 
@@ -94,6 +113,9 @@ db_checks:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `auto_update` | Bool | `false` | Enable/disable automatic updates. |
+| `webhook_url` | String | `""` | URL for sending all metrics (high frequency). |
+| `webhook_interval`| Duration| `1s` | Frequency of sending metrics to webhook. |
 | `server_name` | String | `unknown` | How this server identifies itself in alerts. |
 | `lark_webhook_url`| String | (Required) | Your Lark bot webhook URL. |
 | `check_interval` | Duration| `60s` | Frequency of checks (e.g. `10s`, `1m`). |
