@@ -14,6 +14,29 @@ curl -fsSL https://raw.githubusercontent.com/ftech-vn/telemetry/main/install.sh 
 
 The script will detect your OS/architecture, download (or build) the binary, set up a default configuration, and install the system service.
 
+### Installation with CLI Arguments
+
+For automated deployments, you can pass configuration directly via command-line arguments:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ftech-vn/telemetry/main/install.sh | bash -s -- \
+  --server-id "your-server-id" \
+  --server-key "your-server-key" \
+  --webhook-url "https://your-webhook-endpoint.com/metrics" \
+  --server-name "production-web-1" \
+  --auto-start
+```
+
+| Argument | Description |
+|----------|-------------|
+| `--server-id` | Server identifier for the monitoring platform |
+| `--server-key` | Authentication key for the server |
+| `--webhook-url` | URL endpoint for sending metrics |
+| `--server-name` | Human-readable server name (appears in alerts) |
+| `--auto-start` | Automatically start the service after installation |
+
+**Note:** Without `--auto-start`, the service is installed but not started - you'll need to start it manually using the service management commands below.
+
 ## Features
 
 - **Auto-Update**: If enabled in the configuration, the Telemetry service will automatically check for new releases on GitHub every 24 hours and update its binary. A service restart is required to apply the updated binary.
