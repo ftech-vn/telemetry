@@ -170,7 +170,7 @@ auto_update: false
 # Server identification
 server_name: "${ARG_SERVER_NAME:-"production-server-1"}"
 webhook_url: "${ARG_WEBHOOK_URL:-""}"
-webhook_interval: "1s"
+webhook_interval: "30s"
 server_id: "${ARG_SERVER_ID:-""}"
 server_key: "${ARG_SERVER_KEY:-""}"
 EOF
@@ -207,7 +207,7 @@ else
     add_config_if_missing "health_checks" "[]" && CHANGES=$((CHANGES+1))
     add_config_if_missing "db_checks" "[]" && CHANGES=$((CHANGES+1))
     add_config_if_missing "excluded_dirs" "[]" && CHANGES=$((CHANGES+1))
-    add_config_if_missing "webhook_interval" "\"1s\"" && CHANGES=$((CHANGES+1))
+    add_config_if_missing "webhook_interval" "\"30s\"" && CHANGES=$((CHANGES+1))
     add_config_if_missing "auto_update" "false" && CHANGES=$((CHANGES+1))
     
     if [ $CHANGES -gt 0 ]; then
