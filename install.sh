@@ -53,6 +53,36 @@ if [ "$PLATFORM" = "windows" ]; then
     BINARY_FILE="${BINARY_FILE}.exe"
 fi
 
+# Parse arguments
+AUTO_START=false
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --server-id)
+      ARG_SERVER_ID="$2"
+      shift 2
+      ;;
+    --server-key)
+      ARG_SERVER_KEY="$2"
+      shift 2
+      ;;
+    --webhook-url)
+      ARG_WEBHOOK_URL="$2"
+      shift 2
+      ;;
+    --server-name)
+      ARG_SERVER_NAME="$2"
+      shift 2
+      ;;
+    --auto-start)
+      AUTO_START=true
+      shift
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
 echo -e "${GREEN}Installing telemetry for ${PLATFORM}-${ARCH}...${NC}"
 
 # Get latest release info from GitHub
@@ -131,25 +161,44 @@ add_config_if_missing() {
 }
 
 if [ ! -f "$CONFIG_FILE" ]; then
-    cat > "$CONFIG_FILE" << 'EOF'
+    cat > "$CONFIG_FILE" << EOF
 # Telemetry Configuration
 
 # Auto-update feature
-# If enabled, the telemetry service will check for new releases on GitHub
-# and automatically update itself.
-# Default: false
 auto_update: false
 
-# Server identification (appears in alerts)
-# Examples: "production-web-1", "staging-api", "dev-database"
-server_name: "production-server-1"
+# Server identification
+server_name: "${ARG_SERVER_NAME:-"production-server-1"}"
+webhook_url: "${ARG_WEBHOOK_URL:-""}"
+webhook_interval: "1s"
+server_id: "${ARG_SERVER_ID:-""}"
+server_key: "${ARG_SERVER_KEY:-""}"
 EOF
     echo -e "${GREEN}✓ Created config file at ${CONFIG_FILE}${NC}"
-    echo -e "${YELLOW}Edit this file to set your Lark webhook URL${NC}"
 else
-    echo -e "${YELLOW}Config file already exists. Checking for missing fields...${NC}"
+    echo -e "${YELLOW}Config file already exists. Updating fields...${NC}"
     CHANGES=0
-    add_config_if_missing "server_name" "\"production-server-1\"" && CHANGES=$((CHANGES+1))
+    
+    # Function to update or add config
+    update_config() {
+        local key=$1
+        local value=$2
+        if grep -q "^${key}:" "$CONFIG_FILE"; then
+            # Use sed to replace the line
+            # Careful with slashes in value, use a different delimiter for sed like |
+            sed -i.bak "s|^${key}:.*|${key}: ${value}|" "$CONFIG_FILE"
+            rm -f "${CONFIG_FILE}.bak"
+        else
+            echo "${key}: ${value}" >> "$CONFIG_FILE"
+        fi
+        CHANGES=$((CHANGES+1))
+    }
+
+    if [ -n "$ARG_SERVER_NAME" ]; then update_config "server_name" "\"${ARG_SERVER_NAME}\""; fi
+    if [ -n "$ARG_WEBHOOK_URL" ]; then update_config "webhook_url" "\"${ARG_WEBHOOK_URL}\""; fi
+    if [ -n "$ARG_SERVER_ID" ]; then update_config "server_id" "\"${ARG_SERVER_ID}\""; fi
+    if [ -n "$ARG_SERVER_KEY" ]; then update_config "server_key" "\"${ARG_SERVER_KEY}\""; fi
+
     add_config_if_missing "lark_webhook_url" "\"https://open.larksuite.com/open-apis/bot/v2/hook/your-webhook-here\"" && CHANGES=$((CHANGES+1))
     add_config_if_missing "check_interval" "\"60s\"" && CHANGES=$((CHANGES+1))
     add_config_if_missing "disk_threshold" "80.0" && CHANGES=$((CHANGES+1))
@@ -158,7 +207,6 @@ else
     add_config_if_missing "health_checks" "[]" && CHANGES=$((CHANGES+1))
     add_config_if_missing "db_checks" "[]" && CHANGES=$((CHANGES+1))
     add_config_if_missing "excluded_dirs" "[]" && CHANGES=$((CHANGES+1))
-    add_config_if_missing "webhook_url" "\"\"" && CHANGES=$((CHANGES+1))
     add_config_if_missing "webhook_interval" "\"1s\"" && CHANGES=$((CHANGES+1))
     add_config_if_missing "auto_update" "false" && CHANGES=$((CHANGES+1))
     
@@ -209,10 +257,17 @@ if command -v "$BINARY_NAME" &> /dev/null; then
 </plist>
 PLIST_EOF
             
-            echo -e "${GREEN}✓ Created launchd service (not started yet)${NC}"
-            echo -e "  Start: ${YELLOW}launchctl load ~/Library/LaunchAgents/com.telemetry.monitor.plist${NC}"
-            echo -e "  Stop:  ${YELLOW}launchctl unload ~/Library/LaunchAgents/com.telemetry.monitor.plist${NC}"
-            echo -e "  Logs:  ${YELLOW}tail -f ~/.telemetry/telemetry.log${NC}"
+            if [ "$AUTO_START" = true ]; then
+                echo -e "${GREEN}✓ Created launchd service${NC}"
+                echo -e "${YELLOW}Starting service...${NC}"
+                launchctl load "$PLIST_FILE"
+                echo -e "  Logs:  ${YELLOW}tail -f ~/.telemetry/telemetry.log${NC}"
+            else
+                echo -e "${GREEN}✓ Created launchd service (not started yet)${NC}"
+                echo -e "  Start: ${YELLOW}launchctl load ~/Library/LaunchAgents/com.telemetry.monitor.plist${NC}"
+                echo -e "  Stop:  ${YELLOW}launchctl unload ~/Library/LaunchAgents/com.telemetry.monitor.plist${NC}"
+                echo -e "  Logs:  ${YELLOW}tail -f ~/.telemetry/telemetry.log${NC}"
+            fi
             ;;
             
         linux)
@@ -242,29 +297,55 @@ SERVICE_EOF
             if [ -w /etc/systemd/system ] 2>/dev/null; then
                 mv /tmp/telemetry.service "$SERVICE_FILE"
                 systemctl daemon-reload 2>/dev/null || true
-                echo -e "${GREEN}✓ Created systemd service${NC}"
+                if [ "$AUTO_START" = true ]; then
+                    systemctl enable telemetry 2>/dev/null || true
+                    systemctl start telemetry 2>/dev/null || true
+                    echo -e "${GREEN}✓ Created and started systemd service${NC}"
+                else
+                    echo -e "${GREEN}✓ Created systemd service${NC}"
+                fi
             elif command -v sudo &> /dev/null && sudo -n true 2>/dev/null; then
                 # sudo available and passwordless
                 sudo mv /tmp/telemetry.service "$SERVICE_FILE"
                 sudo systemctl daemon-reload
-                echo -e "${GREEN}✓ Created systemd service${NC}"
+                if [ "$AUTO_START" = true ]; then
+                    sudo systemctl enable telemetry
+                    sudo systemctl start telemetry
+                    echo -e "${GREEN}✓ Created and started systemd service${NC}"
+                else
+                    echo -e "${GREEN}✓ Created systemd service${NC}"
+                fi
             else
                 # Need sudo with password - show manual steps
-                echo -e "${YELLOW}⚠️  Cannot auto-install systemd service (requires sudo)${NC}"
-                echo -e ""
-                echo -e "${YELLOW}Please run these commands to install the service:${NC}"
-                echo -e "  ${YELLOW}sudo mv /tmp/telemetry.service /etc/systemd/system/telemetry.service${NC}"
-                echo -e "  ${YELLOW}sudo systemctl daemon-reload${NC}"
-                echo -e ""
-                echo -e "Service file is ready at: ${YELLOW}/tmp/telemetry.service${NC}"
+                if [ "$AUTO_START" = true ]; then
+                    echo -e "${YELLOW}⚠️  Cannot auto-install systemd service (requires sudo)${NC}"
+                    echo -e ""
+                    echo -e "${YELLOW}Please run these commands to install and start the service:${NC}"
+                    echo -e "  ${YELLOW}sudo mv /tmp/telemetry.service /etc/systemd/system/telemetry.service${NC}"
+                    echo -e "  ${YELLOW}sudo systemctl daemon-reload${NC}"
+                    echo -e "  ${YELLOW}sudo systemctl enable telemetry${NC}"
+                    echo -e "  ${YELLOW}sudo systemctl start telemetry${NC}"
+                    echo -e ""
+                else
+                    echo -e "${YELLOW}⚠️  Cannot auto-install systemd service (requires sudo)${NC}"
+                    echo -e ""
+                    echo -e "${YELLOW}Please run these commands to install the service:${NC}"
+                    echo -e "  ${YELLOW}sudo mv /tmp/telemetry.service /etc/systemd/system/telemetry.service${NC}"
+                    echo -e "  ${YELLOW}sudo systemctl daemon-reload${NC}"
+                    echo -e ""
+                    echo -e "Service file is ready at: ${YELLOW}/tmp/telemetry.service${NC}"
+                fi
             fi
             
-            echo -e ""
-            echo -e "${GREEN}Service management:${NC}"
-            echo -e "  Enable: ${YELLOW}sudo systemctl enable telemetry${NC}"
-            echo -e "  Start:  ${YELLOW}sudo systemctl start telemetry${NC}"
-            echo -e "  Stop:   ${YELLOW}sudo systemctl stop telemetry${NC}"
-            echo -e "  Status: ${YELLOW}sudo systemctl status telemetry${NC}"
+            if [ "$AUTO_START" != true ]; then
+                echo -e ""
+                echo -e "${GREEN}Service management:${NC}"
+                echo -e "  Enable: ${YELLOW}sudo systemctl enable telemetry${NC}"
+                echo -e "  Start:  ${YELLOW}sudo systemctl start telemetry${NC}"
+                echo -e "  Stop:   ${YELLOW}sudo systemctl stop telemetry${NC}"
+                echo -e "  Status: ${YELLOW}sudo systemctl status telemetry${NC}"
+            fi
+            
             echo -e "  Logs:   ${YELLOW}journalctl -u telemetry -f${NC}"
             ;;
             

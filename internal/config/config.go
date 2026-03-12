@@ -22,6 +22,8 @@ type Config struct {
 	WebhookURL      string   `yaml:"webhook_url"`
 	WebhookInterval string   `yaml:"webhook_interval"`
 	AutoUpdate      bool     `yaml:"auto_update"`
+	ServerID        string   `yaml:"server_id"`
+	ServerKey       string   `yaml:"server_key"`
 }
 
 func Load() (*Config, error) {

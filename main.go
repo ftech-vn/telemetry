@@ -159,7 +159,7 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 
 	// Webhook for high-frequency metrics
 	if cfg.WebhookURL != "" {
-		webhookNotifier := notifier.NewWebhookNotifier(cfg.WebhookURL)
+		webhookNotifier := notifier.NewWebhookNotifier(cfg.WebhookURL, cfg.ServerID, cfg.ServerKey)
 		log.Printf("🚀 Webhook for metrics enabled (URL: %s, Interval: %s)", cfg.WebhookURL, cfg.WebhookInterval)
 
 		// Start independent metrics loop
