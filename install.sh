@@ -182,7 +182,7 @@ auto_update: false
 # Server identification
 server_name: "${ARG_SERVER_NAME:-"production-server-1"}"
 webhook_url: "${ARG_WEBHOOK_URL:-""}"
-webhook_interval: "30s"
+webhook_interval: "1s"
 server_id: "${ARG_SERVER_ID:-""}"
 server_key: "${ARG_SERVER_KEY:-""}"
 
