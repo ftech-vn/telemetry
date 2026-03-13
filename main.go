@@ -126,6 +126,8 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 
 	// Initialize monitors
 	monitors := monitor.NewRegistry(cfg.ServerID, cfg.ServerName)
+	
+	cpuThresh := 101.0
 	if cfg.CPUThreshold != nil {
 		cpuThresh = *cfg.CPUThreshold
 		log.Printf("📊 CPU alerts enabled (threshold: %.1f%%)", cpuThresh)
