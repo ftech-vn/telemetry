@@ -97,6 +97,7 @@ func main() {
 			// Notify about shutdown
 			shutdownAlert := []monitor.Alert{
 				{
+					ServerID:   cfg.ServerID,
 					ServerName: cfg.ServerName,
 					Type:       "system",
 					Message:    "🛑 Telemetry service is shutting down...",
@@ -124,9 +125,9 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 	}
 
 	// Initialize monitors
-	monitors := monitor.NewRegistry(cfg.ServerName)
+	monitors := monitor.NewRegistry(cfg.ServerID, cfg.ServerName)
 	
-	cpuThresh := 101.0 // Unreachable by default
+	cpuThresh := 101.0
 	if cfg.CPUThreshold != nil {
 		cpuThresh = *cfg.CPUThreshold
 		log.Printf("📊 CPU alerts enabled (threshold: %.1f%%)", cpuThresh)
@@ -172,7 +173,7 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 		log.Printf("🚀 Webhook for metrics enabled (URL: %s, Interval: %s)", cfg.WebhookURL, cfg.WebhookInterval)
 
 		// Start independent metrics loop
-		go func(m *monitor.Registry, n *notifier.WebhookNotifier, serverName string) {
+		go func(m *monitor.Registry, n *notifier.WebhookNotifier, serverID string) {
 			interval, _ := time.ParseDuration(cfg.WebhookInterval)
 			ticker := time.NewTicker(interval)
 			defer ticker.Stop()
@@ -187,7 +188,7 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 					return
 				}
 			}
-		}(monitors, webhookNotifier, cfg.ServerName)
+		}(monitors, webhookNotifier, cfg.ServerID)
 	}
 
 	// Database Checks run in their own high-frequency loop
@@ -204,7 +205,7 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 			log.Printf("📊 Immediate DB monitoring enabled for: %s", name)
 
 			// Start independent check loop
-			go func(dbM *monitor.DBMonitor, n *notifier.Registry, serverName string) {
+			go func(dbM *monitor.DBMonitor, n *notifier.Registry, serverID, serverName string) {
 				ticker := time.NewTicker(5 * time.Second)
 				defer ticker.Stop()
 				for {
@@ -213,6 +214,7 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 						metrics := dbM.CheckMetrics()
 						// Add server name to all metrics
 						for i := range metrics {
+							metrics[i].ServerID = serverID
 							metrics[i].ServerName = serverName
 						}
 						alerts := dbM.CheckAlerts(metrics)
@@ -225,7 +227,7 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 						return
 					}
 				}
-			}(m, notifiers, cfg.ServerName)
+			}(m, notifiers, cfg.ServerID, cfg.ServerName)
 		}
 	}
 
