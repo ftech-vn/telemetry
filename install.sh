@@ -73,6 +73,18 @@ while [[ $# -gt 0 ]]; do
       ARG_SERVER_NAME="$2"
       shift 2
       ;;
+    --cpu-threshold)
+      ARG_CPU_THRESHOLD="$2"
+      shift 2
+      ;;
+    --memory-threshold)
+      ARG_MEMORY_THRESHOLD="$2"
+      shift 2
+      ;;
+    --disk-threshold)
+      ARG_DISK_THRESHOLD="$2"
+      shift 2
+      ;;
     --auto-start)
       AUTO_START=true
       shift
@@ -170,9 +182,33 @@ auto_update: false
 # Server identification
 server_name: "${ARG_SERVER_NAME:-"production-server-1"}"
 webhook_url: "${ARG_WEBHOOK_URL:-""}"
-webhook_interval: "1s"
+webhook_interval: "30s"
 server_id: "${ARG_SERVER_ID:-""}"
 server_key: "${ARG_SERVER_KEY:-""}"
+
+# Lark webhook URL (optional)
+lark_webhook_url: "https://open.larksuite.com/open-apis/bot/v2/hook/your-webhook-here"
+
+# Check interval - how often to monitor metrics
+check_interval: "60s"
+
+# Disk usage threshold percentage - alert when disk usage exceeds this value
+disk_threshold: ${ARG_DISK_THRESHOLD:-80.0}
+
+# CPU usage threshold percentage - alert when CPU usage exceeds this
+cpu_threshold: ${ARG_CPU_THRESHOLD:-80.0}
+
+# Memory usage threshold percentage - alert when memory usage exceeds this
+memory_threshold: ${ARG_MEMORY_THRESHOLD:-80.0}
+
+# Directories to exclude from disk breakdown (optional)
+excluded_dirs: []
+
+# Health check URLs (optional)
+health_checks: []
+
+# Database connection checks (optional)
+db_checks: []
 EOF
     echo -e "${GREEN}✓ Created config file at ${CONFIG_FILE}${NC}"
 else
@@ -198,16 +234,19 @@ else
     if [ -n "$ARG_WEBHOOK_URL" ]; then update_config "webhook_url" "\"${ARG_WEBHOOK_URL}\""; fi
     if [ -n "$ARG_SERVER_ID" ]; then update_config "server_id" "\"${ARG_SERVER_ID}\""; fi
     if [ -n "$ARG_SERVER_KEY" ]; then update_config "server_key" "\"${ARG_SERVER_KEY}\""; fi
+    if [ -n "$ARG_CPU_THRESHOLD" ]; then update_config "cpu_threshold" "${ARG_CPU_THRESHOLD}"; fi
+    if [ -n "$ARG_MEMORY_THRESHOLD" ]; then update_config "memory_threshold" "${ARG_MEMORY_THRESHOLD}"; fi
+    if [ -n "$ARG_DISK_THRESHOLD" ]; then update_config "disk_threshold" "${ARG_DISK_THRESHOLD}"; fi
 
     add_config_if_missing "lark_webhook_url" "\"https://open.larksuite.com/open-apis/bot/v2/hook/your-webhook-here\"" && CHANGES=$((CHANGES+1))
     add_config_if_missing "check_interval" "\"60s\"" && CHANGES=$((CHANGES+1))
-    add_config_if_missing "disk_threshold" "80.0" && CHANGES=$((CHANGES+1))
-    add_config_if_missing "cpu_threshold" "80.0" && CHANGES=$((CHANGES+1))
-    add_config_if_missing "memory_threshold" "80.0" && CHANGES=$((CHANGES+1))
+    add_config_if_missing "disk_threshold" "${ARG_DISK_THRESHOLD:-80.0}" && CHANGES=$((CHANGES+1))
+    add_config_if_missing "cpu_threshold" "${ARG_CPU_THRESHOLD:-80.0}" && CHANGES=$((CHANGES+1))
+    add_config_if_missing "memory_threshold" "${ARG_MEMORY_THRESHOLD:-80.0}" && CHANGES=$((CHANGES+1))
     add_config_if_missing "health_checks" "[]" && CHANGES=$((CHANGES+1))
     add_config_if_missing "db_checks" "[]" && CHANGES=$((CHANGES+1))
     add_config_if_missing "excluded_dirs" "[]" && CHANGES=$((CHANGES+1))
-    add_config_if_missing "webhook_interval" "\"1s\"" && CHANGES=$((CHANGES+1))
+    add_config_if_missing "webhook_interval" "\"30s\"" && CHANGES=$((CHANGES+1))
     add_config_if_missing "auto_update" "false" && CHANGES=$((CHANGES+1))
     
     if [ $CHANGES -gt 0 ]; then

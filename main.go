@@ -126,17 +126,24 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 	// Initialize monitors
 	monitors := monitor.NewRegistry(cfg.ServerID)
 	if cfg.CPUThreshold != nil {
-		monitors.Register("cpu", monitor.NewCPUMonitor(*cfg.CPUThreshold))
-		log.Printf("📊 CPU monitoring enabled (threshold: %.1f%%)", *cfg.CPUThreshold)
+		cpuThresh = *cfg.CPUThreshold
+		log.Printf("📊 CPU alerts enabled (threshold: %.1f%%)", cpuThresh)
 	}
+	monitors.Register("cpu", monitor.NewCPUMonitor(cpuThresh))
+
+	memThresh := 101.0
 	if cfg.MemoryThreshold != nil {
-		monitors.Register("memory", monitor.NewMemoryMonitor(*cfg.MemoryThreshold))
-		log.Printf("📊 Memory monitoring enabled (threshold: %.1f%%)", *cfg.MemoryThreshold)
+		memThresh = *cfg.MemoryThreshold
+		log.Printf("📊 Memory alerts enabled (threshold: %.1f%%)", memThresh)
 	}
+	monitors.Register("memory", monitor.NewMemoryMonitor(memThresh))
+
+	diskThresh := 101.0
 	if cfg.DiskThreshold != nil {
-		monitors.Register("disk", monitor.NewDiskMonitor(*cfg.DiskThreshold, cfg.ExcludedDirs))
-		log.Printf("📊 Disk monitoring enabled (threshold: %.1f%%)", *cfg.DiskThreshold)
+		diskThresh = *cfg.DiskThreshold
+		log.Printf("📊 Disk alerts enabled (threshold: %.1f%%)", diskThresh)
 	}
+	monitors.Register("disk", monitor.NewDiskMonitor(diskThresh, cfg.ExcludedDirs))
 	for _, hc := range cfg.HealthChecks {
 		if strings.HasPrefix(hc, "#") {
 			continue
