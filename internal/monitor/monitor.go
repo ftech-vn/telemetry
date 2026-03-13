@@ -5,11 +5,11 @@ import (
 )
 
 type Alert struct {
-	ServerName string
-	Type       string
-	Message    string
-	Value      float64
-	Severity   string
+	ServerID string  `json:"server_id"`
+	Type       string  `json:"Type"`
+	Message    string  `json:"Message"`
+	Value      float64 `json:"Value"`
+	Severity   string  `json:"Severity"`
 }
 
 type Monitor interface {
@@ -21,14 +21,14 @@ type Registry struct {
 	mu         sync.RWMutex
 	monitors   map[string]Monitor
 	names      []string
-	serverName string
+	serverID string
 }
 
-func NewRegistry(serverName string) *Registry {
+func NewRegistry(serverID string) *Registry {
 	return &Registry{
 		monitors:   make(map[string]Monitor),
 		names:      []string{},
-		serverName: serverName,
+		serverID: serverID,
 	}
 }
 
@@ -48,12 +48,12 @@ func (r *Registry) CheckAlerts() []Alert {
 		monitor := r.monitors[name]
 		metrics := monitor.CheckMetrics()
 		for i := range metrics {
-			metrics[i].ServerName = r.serverName
+			metrics[i].ServerID = r.serverID
 		}
 
 		alerts := monitor.CheckAlerts(metrics)
 		for i := range alerts {
-			alerts[i].ServerName = r.serverName
+			alerts[i].ServerID = r.serverID
 		}
 		allAlerts = append(allAlerts, alerts...)
 	}
@@ -69,7 +69,7 @@ func (r *Registry) CheckMetrics() []Alert {
 		monitor := r.monitors[name]
 		metrics := monitor.CheckMetrics()
 		for i := range metrics {
-			metrics[i].ServerName = r.serverName
+			metrics[i].ServerID = r.serverID
 		}
 		allMetrics = append(allMetrics, metrics...)
 	}
