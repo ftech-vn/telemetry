@@ -5,7 +5,8 @@ import (
 )
 
 type Alert struct {
-	ServerID string  `json:"server_id"`
+	ServerID   string  `json:"server_id"`
+	ServerName string  `json:"-"` // Ignored by JSON marshaller, used for Lark
 	Type       string  `json:"Type"`
 	Message    string  `json:"Message"`
 	Value      float64 `json:"Value"`
@@ -21,14 +22,16 @@ type Registry struct {
 	mu         sync.RWMutex
 	monitors   map[string]Monitor
 	names      []string
-	serverID string
+	serverID   string
+	serverName string
 }
 
-func NewRegistry(serverID string) *Registry {
+func NewRegistry(serverID string, serverName string) *Registry {
 	return &Registry{
 		monitors:   make(map[string]Monitor),
 		names:      []string{},
-		serverID: serverID,
+		serverID:   serverID,
+		serverName: serverName,
 	}
 }
 
@@ -49,11 +52,13 @@ func (r *Registry) CheckAlerts() []Alert {
 		metrics := monitor.CheckMetrics()
 		for i := range metrics {
 			metrics[i].ServerID = r.serverID
+			metrics[i].ServerName = r.serverName
 		}
 
 		alerts := monitor.CheckAlerts(metrics)
 		for i := range alerts {
 			alerts[i].ServerID = r.serverID
+			alerts[i].ServerName = r.serverName
 		}
 		allAlerts = append(allAlerts, alerts...)
 	}
@@ -70,6 +75,7 @@ func (r *Registry) CheckMetrics() []Alert {
 		metrics := monitor.CheckMetrics()
 		for i := range metrics {
 			metrics[i].ServerID = r.serverID
+			metrics[i].ServerName = r.serverName
 		}
 		allMetrics = append(allMetrics, metrics...)
 	}

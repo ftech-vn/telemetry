@@ -97,7 +97,8 @@ func main() {
 			// Notify about shutdown
 			shutdownAlert := []monitor.Alert{
 				{
-					ServerID: cfg.ServerID,
+					ServerID:   cfg.ServerID,
+					ServerName: cfg.ServerName,
 					Type:       "system",
 					Message:    "🛑 Telemetry service is shutting down...",
 					Severity:   "warning",
@@ -124,7 +125,7 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 	}
 
 	// Initialize monitors
-	monitors := monitor.NewRegistry(cfg.ServerID)
+	monitors := monitor.NewRegistry(cfg.ServerID, cfg.ServerName)
 	if cfg.CPUThreshold != nil {
 		cpuThresh = *cfg.CPUThreshold
 		log.Printf("📊 CPU alerts enabled (threshold: %.1f%%)", cpuThresh)
@@ -202,7 +203,7 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 			log.Printf("📊 Immediate DB monitoring enabled for: %s", name)
 
 			// Start independent check loop
-			go func(dbM *monitor.DBMonitor, n *notifier.Registry, serverID string) {
+			go func(dbM *monitor.DBMonitor, n *notifier.Registry, serverID, serverName string) {
 				ticker := time.NewTicker(5 * time.Second)
 				defer ticker.Stop()
 				for {
@@ -212,6 +213,7 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 						// Add server name to all metrics
 						for i := range metrics {
 							metrics[i].ServerID = serverID
+							metrics[i].ServerName = serverName
 						}
 						alerts := dbM.CheckAlerts(metrics)
 						if len(alerts) > 0 {
@@ -223,7 +225,7 @@ func startup(ctx context.Context) (*config.Config, *monitor.Registry, *notifier.
 						return
 					}
 				}
-			}(m, notifiers, cfg.ServerID)
+			}(m, notifiers, cfg.ServerID, cfg.ServerName)
 		}
 	}
 
