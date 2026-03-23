@@ -119,14 +119,30 @@ if [ -z "$DOWNLOAD_URL" ]; then
     git clone --depth 1 "https://github.com/${REPO}.git" "$TMP_DIR"
     cd "$TMP_DIR"
     go build -o "${BINARY_NAME}" .
+    # Also build the gemini CLI
+    go build -o "telemetry-gemini" ./cmd/gemini/
     cd - > /dev/null
     TMP_FILE="${TMP_DIR}/${BINARY_NAME}"
+    TMP_GEMINI_FILE="${TMP_DIR}/telemetry-gemini"
 
 else
     # Download binary
     echo -e "${YELLOW}Downloading from: $DOWNLOAD_URL${NC}"
     TMP_FILE="/tmp/${BINARY_NAME}"
     curl -L -o "$TMP_FILE" "$DOWNLOAD_URL"
+    
+    # Try to download gemini binary too
+    GEMINI_BINARY_FILE="telemetry-gemini-${PLATFORM}-${ARCH}"
+    if [ "$PLATFORM" = "windows" ]; then
+        GEMINI_BINARY_FILE="${GEMINI_BINARY_FILE}.exe"
+    fi
+    GEMINI_DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | grep "\"browser_download_url\": \".*${GEMINI_BINARY_FILE}\"" | cut -d '"' -f 4)
+    TMP_GEMINI_FILE=""
+    if [ -n "$GEMINI_DOWNLOAD_URL" ]; then
+        echo -e "${YELLOW}Downloading Gemini CLI from: $GEMINI_DOWNLOAD_URL${NC}"
+        TMP_GEMINI_FILE="/tmp/telemetry-gemini"
+        curl -L -o "$TMP_GEMINI_FILE" "$GEMINI_DOWNLOAD_URL"
+    fi
 fi
 
 # Make executable
