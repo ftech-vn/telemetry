@@ -24,6 +24,7 @@ type Config struct {
 	AutoUpdate      bool     `yaml:"auto_update"`
 	ServerID        string   `yaml:"server_id"`
 	ServerKey       string   `yaml:"server_key"`
+	GeminiAPIKey    string   `yaml:"gemini_api_key"`
 }
 
 func Load() (*Config, error) {
