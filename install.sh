@@ -264,6 +264,7 @@ else
     add_config_if_missing "excluded_dirs" "[]" && CHANGES=$((CHANGES+1))
     add_config_if_missing "webhook_interval" "\"30s\"" && CHANGES=$((CHANGES+1))
     add_config_if_missing "auto_update" "false" && CHANGES=$((CHANGES+1))
+    add_config_if_missing "gemini_api_key" "\"\"" && CHANGES=$((CHANGES+1))
     
     if [ $CHANGES -gt 0 ]; then
         echo -e "${GREEN}✓ Added $CHANGES new configuration fields to ${CONFIG_FILE}${NC}"
