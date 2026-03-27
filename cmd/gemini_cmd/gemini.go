@@ -80,8 +80,8 @@ func Execute(args []string) {
 
 	// Send response to backend via webhook for WebSocket broadcast
 	// This runs after CLI output so SSH callers get immediate response
-	if cfg.WebhookURL != "" {
-		geminiNotifier := notifier.NewGeminiNotifier(cfg.WebhookURL, cfg.ServerID, cfg.ServerKey)
+	if cfg.GeminiWebhookURL != "" {
+		geminiNotifier := notifier.NewGeminiNotifier(cfg.GeminiWebhookURL, cfg.ServerID, cfg.ServerKey)
 		if err := geminiNotifier.Notify(prompt, response, output.Success, output.Error); err != nil {
 			log.Printf(" Failed to send Gemini response to backend: %v", err)
 		}

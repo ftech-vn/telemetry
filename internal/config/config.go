@@ -10,21 +10,22 @@ import (
 )
 
 type Config struct {
-	CheckInterval   string   `yaml:"check_interval"`
-	ServerName      string   `yaml:"server_name"`
-	DiskThreshold   *float64 `yaml:"disk_threshold"`
-	ExcludedDirs    []string `yaml:"excluded_dirs"`
-	CPUThreshold    *float64 `yaml:"cpu_threshold"`
-	MemoryThreshold *float64 `yaml:"memory_threshold"`
-	HealthChecks    []string `yaml:"health_checks"`
-	DBChecks        []string `yaml:"db_checks"`
-	LarkWebhookURL  string   `yaml:"lark_webhook_url"`
-	WebhookURL      string   `yaml:"webhook_url"`
-	WebhookInterval string   `yaml:"webhook_interval"`
-	AutoUpdate      bool     `yaml:"auto_update"`
-	ServerID        string   `yaml:"server_id"`
-	ServerKey       string   `yaml:"server_key"`
-	GeminiAPIKey    string   `yaml:"gemini_api_key"`
+	CheckInterval     string   `yaml:"check_interval"`
+	ServerName        string   `yaml:"server_name"`
+	DiskThreshold     *float64 `yaml:"disk_threshold"`
+	ExcludedDirs      []string `yaml:"excluded_dirs"`
+	CPUThreshold      *float64 `yaml:"cpu_threshold"`
+	MemoryThreshold   *float64 `yaml:"memory_threshold"`
+	HealthChecks      []string `yaml:"health_checks"`
+	DBChecks          []string `yaml:"db_checks"`
+	LarkWebhookURL    string   `yaml:"lark_webhook_url"`
+	WebhookURL        string   `yaml:"webhook_url"`
+	WebhookInterval   string   `yaml:"webhook_interval"`
+	GeminiWebhookURL  string   `yaml:"gemini_webhook_url"`
+	AutoUpdate        bool     `yaml:"auto_update"`
+	ServerID          string   `yaml:"server_id"`
+	ServerKey         string   `yaml:"server_key"`
+	GeminiAPIKey      string   `yaml:"gemini_api_key"`
 }
 
 func Load() (*Config, error) {

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -31,15 +30,10 @@ type geminiPayload struct {
 }
 
 // NewGeminiNotifier creates a new GeminiNotifier.
-// webhookURL should be the base metrics URL (e.g., http://localhost:5000/api/metrics)
-// The notifier will automatically derive the gemini endpoint from it.
-func NewGeminiNotifier(webhookURL string, serverID string, serverKey string) *GeminiNotifier {
-	// Derive gemini URL from metrics URL
-	// e.g., http://localhost:5000/api/metrics -> http://localhost:5000/api/gemini
-	geminiURL := strings.Replace(webhookURL, "/api/metrics", "/api/gemini", 1)
-	
+// geminiWebhookURL is the full URL to the Gemini webhook endpoint (e.g., http://localhost:5000/api/gemini)
+func NewGeminiNotifier(geminiWebhookURL string, serverID string, serverKey string) *GeminiNotifier {
 	return &GeminiNotifier{
-		webhookURL: geminiURL,
+		webhookURL: geminiWebhookURL,
 		serverID:   serverID,
 		serverKey:  serverKey,
 	}
