@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
 	"telemetry/internal/config"
 	"telemetry/internal/gemini"
+	"telemetry/internal/notifier"
 )
 
 type Response struct {
@@ -65,14 +67,27 @@ func Execute(args []string) {
 
 	client := gemini.NewClient(cfg.GeminiAPIKey)
 	response, err := client.SendPrompt(prompt)
+	
+	// Always output JSON for CLI compatibility (SSH calls parse this)
+	var output Response
 	if err != nil {
-		output := Response{Success: false, Error: err.Error()}
-		jsonOut, _ := json.Marshal(output)
-		fmt.Println(string(jsonOut))
-		os.Exit(1)
+		output = Response{Success: false, Error: err.Error()}
+	} else {
+		output = Response{Success: true, Response: response}
 	}
-
-	output := Response{Success: true, Response: response}
 	jsonOut, _ := json.Marshal(output)
 	fmt.Println(string(jsonOut))
+
+	// Send response to backend via webhook for WebSocket broadcast
+	// This runs after CLI output so SSH callers get immediate response
+	if cfg.WebhookURL != "" {
+		geminiNotifier := notifier.NewGeminiNotifier(cfg.WebhookURL, cfg.ServerID, cfg.ServerKey)
+		if err := geminiNotifier.Notify(prompt, response, output.Success, output.Error); err != nil {
+			log.Printf(" Failed to send Gemini response to backend: %v", err)
+		}
+	}
+
+	if !output.Success {
+		os.Exit(1)
+	}
 }
