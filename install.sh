@@ -284,6 +284,7 @@ if command -v "$BINARY_NAME" &> /dev/null; then
     <key>ProgramArguments</key>
     <array>
         <string>${INSTALL_DIR}/${BINARY_NAME}</string>
+        <string>run</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -322,7 +323,7 @@ After=network.target
 [Service]
 Type=simple
 User=${USER}
-ExecStart=${INSTALL_DIR}/${BINARY_NAME}
+ExecStart=${INSTALL_DIR}/${BINARY_NAME} run
 ExecReload=/bin/kill -HUP \$MAINPID
 Restart=always
 RestartSec=10
