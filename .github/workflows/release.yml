@@ -49,26 +49,12 @@ jobs:
         run: |
           go build -v -ldflags="-s -w -X main.Version=${{ github.ref_name }}" -o ${{ matrix.output }} .
           
-      - name: Build gemini binary
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
+      - name: Create checksum
         run: |
-          GEMINI_OUTPUT="${{ matrix.output }}"
-          GEMINI_OUTPUT="${GEMINI_OUTPUT/telemetry-/telemetry-gemini-}"
-          go build -v -ldflags="-s -w" -o $GEMINI_OUTPUT ./cmd/gemini/
-          
-      - name: Create checksums
-        run: |
-          GEMINI_OUTPUT="${{ matrix.output }}"
-          GEMINI_OUTPUT="${GEMINI_OUTPUT/telemetry-/telemetry-gemini-}"
           if command -v sha256sum &> /dev/null; then
             sha256sum ${{ matrix.output }} > ${{ matrix.output }}.sha256
-            sha256sum $GEMINI_OUTPUT > ${GEMINI_OUTPUT}.sha256
           else
             shasum -a 256 ${{ matrix.output }} > ${{ matrix.output }}.sha256
-            shasum -a 256 $GEMINI_OUTPUT > ${GEMINI_OUTPUT}.sha256
           fi
 
       - name: Upload artifacts
@@ -78,7 +64,6 @@ jobs:
           path: |
             ${{ matrix.output }}
             ${{ matrix.output }}.sha256
-            telemetry-gemini-*
 
   release:
     name: Create Release

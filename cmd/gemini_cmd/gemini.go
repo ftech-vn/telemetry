@@ -1,4 +1,4 @@
-package main
+package gemini_cmd
 
 import (
 	"bufio"
@@ -17,7 +17,7 @@ type Response struct {
 	Error    string `json:"error,omitempty"`
 }
 
-func main() {
+func Execute(args []string) {
 	var prompt string
 	
 	// Check if input is from pipe/stdin or command line args
@@ -30,11 +30,11 @@ func main() {
 			lines = append(lines, scanner.Text())
 		}
 		prompt = strings.Join(lines, "\n")
-	} else if len(os.Args) >= 2 {
-		// Input is from command line args (legacy support)
-		prompt = strings.Join(os.Args[1:], " ")
+	} else if len(args) >= 1 {
+		// Input is from command line args
+		prompt = strings.Join(args, " ")
 	} else {
-		output := Response{Success: false, Error: "Usage: telemetry-gemini <prompt> OR echo 'prompt' | telemetry-gemini"}
+		output := Response{Success: false, Error: "Usage: telemetry gemini <prompt> OR echo 'prompt' | telemetry gemini"}
 		jsonOut, _ := json.Marshal(output)
 		fmt.Println(string(jsonOut))
 		os.Exit(1)
