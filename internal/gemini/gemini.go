@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	GeminiAPIURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"
+	GeminiAPIURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 )
 
 type ContentPart struct {
