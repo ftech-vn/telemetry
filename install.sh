@@ -69,6 +69,14 @@ while [[ $# -gt 0 ]]; do
       ARG_WEBHOOK_URL="$2"
       shift 2
       ;;
+    --gemini-webhook-url)
+      ARG_GEMINI_WEBHOOK_URL="$2"
+      shift 2
+      ;;
+    --gemini-api-key)
+      ARG_GEMINI_API_KEY="$2"
+      shift 2
+      ;;
     --server-name)
       ARG_SERVER_NAME="$2"
       shift 2
@@ -233,6 +241,8 @@ else
 
     if [ -n "$ARG_SERVER_NAME" ]; then update_config "server_name" "\"${ARG_SERVER_NAME}\""; fi
     if [ -n "$ARG_WEBHOOK_URL" ]; then update_config "webhook_url" "\"${ARG_WEBHOOK_URL}\""; fi
+    if [ -n "$ARG_GEMINI_WEBHOOK_URL" ]; then update_config "gemini_webhook_url" "\"${ARG_GEMINI_WEBHOOK_URL}\""; fi
+    if [ -n "$ARG_GEMINI_API_KEY" ]; then update_config "gemini_api_key" "\"${ARG_GEMINI_API_KEY}\""; fi
     if [ -n "$ARG_SERVER_ID" ]; then update_config "server_id" "\"${ARG_SERVER_ID}\""; fi
     if [ -n "$ARG_SERVER_KEY" ]; then update_config "server_key" "\"${ARG_SERVER_KEY}\""; fi
     if [ -n "$ARG_CPU_THRESHOLD" ]; then update_config "cpu_threshold" "${ARG_CPU_THRESHOLD}"; fi
