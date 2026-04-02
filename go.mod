@@ -6,8 +6,10 @@ toolchain go1.24.13
 
 require (
 	github.com/go-sql-driver/mysql v1.9.3
+	github.com/google/generative-ai-go v0.20.1
 	github.com/lib/pq v1.11.2
 	github.com/shirou/gopsutil/v3 v3.24.1
+	google.golang.org/api v0.273.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
