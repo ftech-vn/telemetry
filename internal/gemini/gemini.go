@@ -1,117 +1,115 @@
 package gemini
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-	"time"
-)
+		"context"
+		"fmt"
+		"sync"
+
+		"github.com/google/generative-ai-go/genai"
+		"google.golang.org/api/option"
+	)
 
 const (
-	GeminiAPIURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
-)
+		ModelName = "gemini-2.5-flash"
+	)
 
-type ContentPart struct {
-	Text string `json:"text"`
-}
-
-type Content struct {
-	Parts []ContentPart `json:"parts"`
-}
-
-type RequestBody struct {
-	Contents []Content `json:"contents"`
-}
-
-type ResponsePart struct {
-	Text string `json:"text"`
-}
-
-type ResponseContent struct {
-	Parts []ResponsePart `json:"parts"`
-	Role  string         `json:"role"`
-}
-
-type Candidate struct {
-	Content ResponseContent `json:"content"`
-}
-
-type GeminiResponse struct {
-	Candidates []Candidate `json:"candidates"`
-	Error      *struct {
-		Code    int    `json:"code"`
-		Message string `json:"message"`
-		Status  string `json:"status"`
-	} `json:"error,omitempty"`
-}
-
+// Client wraps the official Gemini SDK client.
 type Client struct {
-	apiKey     string
-	httpClient *http.Client
+		apiKey    string
+		genClient *genai.Client
+		model     *genai.GenerativeModel
+		mu        sync.Mutex
 }
 
-func NewClient(apiKey string) *Client {
-	return &Client{
-		apiKey: apiKey,
-		httpClient: &http.Client{
-			Timeout: 60 * time.Second,
-		},
-	}
+// NewClient creates a new Gemini client using the official SDK.
+func NewClient(apiKey string) (*Client, error) {
+		if apiKey == "" {
+					return nil, fmt.Errorf("gemini_api_key not configured in config.yaml")
+				}
+
+		ctx := context.Background()
+		genClient, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
+		if err != nil {
+					return nil, fmt.Errorf("failed to create Gemini client: %w", err)
+				}
+
+		model := genClient.GenerativeModel(ModelName)
+
+		return &Client{
+					apiKey:    apiKey,
+					genClient: genClient,
+					model:     model,
+				}, nil
 }
 
+// SendPrompt sends a single prompt (stateless, no session context).
 func (c *Client) SendPrompt(prompt string) (string, error) {
-	if c.apiKey == "" {
-		return "", fmt.Errorf("gemini_api_key not configured in config.yaml")
-	}
+		ctx := context.Background()
 
-	reqBody := RequestBody{
-		Contents: []Content{
-			{
-				Parts: []ContentPart{
-					{Text: prompt},
-				},
-			},
-		},
-	}
+		resp, err := c.model.GenerateContent(ctx, genai.Text(prompt))
+		if err != nil {
+					return "", fmt.Errorf("gemini API error: %w", err)
+				}
 
-	jsonBody, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
-	}
+		return extractText(resp), nil
+}
 
-	url := fmt.Sprintf("%s?key=%s", GeminiAPIURL, c.apiKey)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
+// ChatSession wraps a Gemini chat session for multi-turn conversations
+// that preserve context across messages.
+type ChatSession struct {
+		session *genai.ChatSession
+		mu      sync.Mutex
+}
 
-	req.Header.Set("Content-Type", "application/json")
+// StartChat creates a new chat session that preserves context across messages.
+func (c *Client) StartChat() *ChatSession {
+		return &ChatSession{
+					session: c.model.StartChat(),
+				}
+}
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
+// Send sends a message in the chat session, preserving conversation history.
+func (cs *ChatSession) Send(prompt string) (string, error) {
+		cs.mu.Lock()
+		defer cs.mu.Unlock()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response: %w", err)
-	}
+		ctx := context.Background()
+		resp, err := cs.session.SendMessage(ctx, genai.Text(prompt))
+		if err != nil {
+					return "", fmt.Errorf("gemini chat error: %w", err)
+				}
 
-	var geminiResp GeminiResponse
-	if err := json.Unmarshal(body, &geminiResp); err != nil {
-		return "", fmt.Errorf("failed to parse response: %w", err)
-	}
+		return extractText(resp), nil
+}
 
-	if geminiResp.Error != nil {
-		return "", fmt.Errorf("gemini API error: %s (code: %d)", geminiResp.Error.Message, geminiResp.Error.Code)
-	}
+// GetHistory returns the conversation history of this chat session.
+func (cs *ChatSession) GetHistory() []*genai.Content {
+		cs.mu.Lock()
+		defer cs.mu.Unlock()
+		return cs.session.History
+}
 
-	if len(geminiResp.Candidates) == 0 || len(geminiResp.Candidates[0].Content.Parts) == 0 {
-		return "", fmt.Errorf("no response from Gemini")
-	}
+// Close releases resources held by the Gemini client.
+func (c *Client) Close() error {
+		return c.genClient.Close()
+}
 
-	return geminiResp.Candidates[0].Content.Parts[0].Text, nil
+// extractText extracts the text response from a Gemini API response.
+func extractText(resp *genai.GenerateContentResponse) string {
+		if resp == nil || len(resp.Candidates) == 0 {
+					return ""
+				}
+
+		candidate := resp.Candidates[0]
+		if candidate.Content == nil || len(candidate.Content.Parts) == 0 {
+					return ""
+				}
+
+		var result string
+		for _, part := range candidate.Content.Parts {
+					if text, ok := part.(genai.Text); ok {
+									result += string(text)
+								}
+				}
+		return result
 }
