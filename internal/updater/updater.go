@@ -7,8 +7,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 
 	"telemetry/internal/config"
 )
@@ -82,7 +84,13 @@ func CheckForUpdates(currentVersion string, cfg *config.Config) {
 		log.Printf("❌ Failed to write update notification file: %v", err)
 	}
 
-	log.Println("✅ Update successful! Please restart the service to apply the changes.")
+	log.Println("✅ Update successful! Restarting service to apply the changes...")
+	// Send SIGTERM to self — the service manager (systemd/launchd) will restart
+	// the process, which will then load the newly downloaded binary.
+	p, err := os.FindProcess(os.Getpid())
+	if err == nil {
+		p.Signal(syscall.SIGTERM)
+	}
 }
 
 func downloadAndReplace(url string) error {
@@ -92,22 +100,30 @@ func downloadAndReplace(url string) error {
 	}
 	defer resp.Body.Close()
 
-	tmpFile, err := os.CreateTemp("", fileName)
+	currentExecutable, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	defer tmpFile.Close()
+
+	// Create temp file in the same directory as the binary so that os.Rename
+	// is guaranteed to be an atomic same-filesystem move. Using os.TempDir()
+	// (e.g. /tmp) would fail with "invalid cross-device link" when the binary
+	// lives on a different filesystem such as /usr/local/bin.
+	tmpFile, err := os.CreateTemp(filepath.Dir(currentExecutable), fileName)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		tmpFile.Close()
+		// Clean up temp file on failure; on success Rename moves it away.
+		os.Remove(tmpFile.Name())
+	}()
 
 	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
 		return err
 	}
 
 	if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
-		return err
-	}
-
-	currentExecutable, err := os.Executable()
-	if err != nil {
 		return err
 	}
 
