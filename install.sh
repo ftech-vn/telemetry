@@ -191,7 +191,8 @@ auto_update: false
 server_name: "${ARG_SERVER_NAME:-"production-server-1"}"
 webhook_url: "${ARG_WEBHOOK_URL:-""}"
 webhook_interval: "1s"
-gemini_webhook_url: ""
+gemini_webhook_url: "${ARG_GEMINI_WEBHOOK_URL:-""}"
+gemini_api_key: "${ARG_GEMINI_API_KEY:-""}"
 server_id: "${ARG_SERVER_ID:-""}"
 server_key: "${ARG_SERVER_KEY:-""}"
 
